@@ -1,5 +1,5 @@
 from flask import Flask, render_template, jsonify, request
-import MySqldb as MySQL
+import MySQLdb as MySQL
 
 app = Flask(__name__)
 
@@ -13,26 +13,19 @@ def get_index():
 def get_chat_messages():
   db = MySQL.connect('localhost', 'root', '12345', "chat")
   cur = db.cursor()
-  cur = cur.execute('SELECT * FROM messages')
+  cur.execute('SELECT * FROM messages')
   messages = jsonify(cur.fetchall())
   return messages
 
 
-@app.route('/chat', methods=['POST'])
-def post_chat_messages():
-  message = get_current_message()
+@app.route('/message', methods=['POST'])
+def get_current_message_and_save_to_database():
+  content = request.json
   db = MySQL.connect('localhost', 'root', '12345', "chat")
   cur = db.cursor()
-  cur = cur.execute('INSERT INTO messages (username, message) VALUES($s, $s)',
-                    [message['username'], message['message']])
+  cur.execute('INSERT INTO messages (username, message) VALUES(%s, %s)',
+              (content['username'], content['message']))
+  return jsonify(content)
 
 
-@app.route('/message', methods=['GET'])
-def get_current_message():
-  content = request.json
-  print content['username']
-  print content['message']
-  return jsonify({"username": content['username'], "message": content['message']})
-
-
-app.run(debug=true)
+app.run(debug=True)
