@@ -1,27 +1,31 @@
-from flask import Flask, send_from_directory, jsonify, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO
+from dotenv import load_dotenv
 import os
 import MySQLdb as MySQL
 
-app = Flask(__name__, static_folder='templates')
+load_dotenv()
+
+app = Flask(__name__)
 app.config['SECRET_KEY'] = 'karton'
 socketio = SocketIO(app)
 CORS(app)
 
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-  if path != "" and os.path.exists("react_app/build/" + path):
-    return send_from_directory('react_app/build', path)
-  else:
-    return send_from_directory('react_app/build', 'index.html')
-
+db = MySQL.connect(os.getenv('HOST_ADDRESS'), os.getenv('DB_NAME'), os.getenv('DB_PASS'), os.getenv('DB_DATABASE'), charset='utf8')
+cur = db.cursor()
+cur.execute("CREATE TABLE IF NOT EXISTS `messages` ("
+            "  `id` int(11) NOT NULL AUTO_INCREMENT,"
+            "  `username` varchar(100) COLLATE utf8_hungarian_ci NOT NULL,"
+            "  `message` varchar(100) COLLATE utf8_hungarian_ci NOT NULL,"
+            "  `createdAt` timestamp NOT NULL DEFAULT current_timestamp(),"
+            "  PRIMARY KEY (`id`)"
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_hungarian_ci")
 
 @app.route('/chat', methods=['GET'])
 def get_chat_messages():
-  db = MySQL.connect('localhost', 'root', '12345', 'chat', charset='utf8')
+  db = MySQL.connect(os.getenv('HOST_ADDRESS'), os.getenv('DB_NAME'), os.getenv('DB_PASS'), os.getenv('DB_DATABASE'),
+                     charset='utf8')
   cur = db.cursor()
   cur.execute('SELECT * FROM messages')
   messages = jsonify(cur.fetchall())
@@ -33,7 +37,8 @@ def get_chat_messages():
 @app.route('/message', methods=['POST'])
 def get_current_message_and_save_to_database():
   content = request.json
-  db = MySQL.connect('localhost', 'root', '12345', 'chat', charset='utf8')
+  db = MySQL.connect(os.getenv('HOST_ADDRESS'), os.getenv('DB_NAME'), os.getenv('DB_PASS'), os.getenv('DB_DATABASE'),
+                     charset='utf8')
   cur = db.cursor()
   cur.execute('INSERT INTO messages (username, message) VALUES(%s, %s)',
               (content['username'], content['message']))
@@ -49,7 +54,7 @@ def get_current_message_and_save_to_database():
 
 @socketio.on('connect')
 def connected():
-  print "%s connected" % (request.sid)
+  print("%s connected" % request.sid)
 
 
-socketio.run(app, use_reloader=True, host='192.168.111.234')
+socketio.run(app, use_reloader=True, host=os.getenv('HOST_ADDRESS'))
